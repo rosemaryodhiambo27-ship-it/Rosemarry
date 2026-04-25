@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and progress.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "level": { "type": "integer" },
+        "xp": { "type": "integer" },
+        "currentCurriculum": { "type": "string", "enum": ["CBC", "Cambridge", "Pearson", "KCSE"] },
+        "themePreference": { "type": "string", "enum": ["light", "dark"] },
+        "tutorInstructions": { "type": "string" },
+        "studentId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email"]
+    },
+    "Conversation": {
+      "title": "Conversation Session",
+      "description": "A chat session with the AI tutor.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "subject": { "type": "string" },
+        "topic": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Individual message in a conversation.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["role", "content", "timestamp"]
+    },
+    "Quiz": {
+      "title": "STEM Quiz",
+      "description": "Educational quiz definitions.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "topic": { "type": "string" },
+        "curriculum": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "xpReward": { "type": "integer" }
+      },
+      "required": ["title", "subject", "xpReward"]
+    },
+    "Project": {
+      "title": "Collaboration Project",
+      "description": "Shared project for real-time collaboration.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "content": { "type": "string" },
+        "lastEditedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Chat conversations metadata."
+    },
+    "/conversations/{convId}/messages/{msgId}": {
+      "schema": "Message",
+      "description": "Messages within a conversation."
+    },
+    "/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Global quiz definitions."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collaborative group projects."
+    },
+    "/projects/{projectId}/collaborators/{userId}": {
+      "schema": { "type": "object", "properties": { "role": { "type": "string" } } },
+      "description": "Mapping of users to projects for access control."
+    }
+  }
+}

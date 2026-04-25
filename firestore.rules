@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Admin check - simplified for demo; for production, use a dedicated collection
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'rosemaryodhiambo2704@gmail.com' && request.auth.token.email_verified == true
+      );
+    }
+
+    // --- Collections ---
+
+    // Users
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 100)) &&
+             (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 100));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && 
+                    incoming().keys().hasAll(['uid', 'name', 'email']) &&
+                    isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'level', 'xp', 'currentCurriculum', 'themePreference', 'tutorInstructions', 'updatedAt']);
+
+      match /messages/{msgId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Conversations
+    function isValidConversation(data) {
+      return data.studentId == request.auth.uid &&
+             data.studentId is string;
+    }
+
+    match /conversations/{convId} {
+      allow read, update, delete: if isSignedIn() && (existing().studentId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidConversation(incoming()) && isValidId(convId);
+      
+      match /messages/{msgId} {
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/conversations/$(convId)).data.studentId == request.auth.uid || isAdmin());
+        allow create: if isSignedIn() && get(/databases/$(database)/documents/conversations/$(convId)).data.studentId == request.auth.uid && isValidId(msgId);
+      }
+    }
+
+    // Quizzes (Read-only for all students)
+    match /quizzes/{quizId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Projects (Collaboration)
+    match /projects/{projectId} {
+      function isMember(pId) {
+        return exists(/databases/$(database)/documents/projects/$(pId)/collaborators/$(request.auth.uid));
+      }
+      
+      allow read: if isSignedIn() && (existing().ownerId == request.auth.uid || isMember(projectId) || isAdmin());
+      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid && isValidId(projectId);
+      allow update: if isSignedIn() && (existing().ownerId == request.auth.uid || isMember(projectId) || isAdmin());
+      
+      match /collaborators/{userId} {
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid || isOwner(userId) || isAdmin());
+        allow write: if isSignedIn() && (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid || isAdmin());
+      }
+    }
+  }
+}
